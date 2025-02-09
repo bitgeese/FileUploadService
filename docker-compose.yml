@@ -1,0 +1,68 @@
+version: '3'
+
+services:
+  django:
+    build:
+      context: .
+      dockerfile: ./compose/local/django/Dockerfile
+    image: file_upload_service_local_django
+    volumes:
+      - .:/app:z
+      - uploaded_files:/app/uploaded_files
+    env_file:
+      - ./.envs/.local/.django
+      - ./.envs/.local/.postgres
+    ports:
+      - '8000:8000'
+    depends_on:
+      - postgres
+      - redis
+    command: /start
+
+  postgres:
+    build:
+      context: .
+      dockerfile: ./compose/production/postgres/Dockerfile
+    image: file_upload_service_production_postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - postgres_backups:/backups
+    env_file:
+      - ./.envs/.local/.postgres
+
+  redis:
+    image: redis:6
+    volumes:
+      - redis_data:/data
+
+  celeryworker:
+    build:
+      context: .
+      dockerfile: ./compose/local/django/Dockerfile
+    image: file_upload_service_local_celeryworker
+    volumes:
+      - .:/app:z
+    env_file:
+      - ./.envs/.local/.django
+      - ./.envs/.local/.postgres
+    depends_on:
+      - redis
+      - postgres
+    command: /start-celeryworker
+
+  client:
+    build:
+      context: .
+      dockerfile: ./compose/local/client/Dockerfile
+    volumes:
+      - .:/app:z
+    depends_on:
+      - django
+    environment:
+      - API_URL=http://django:8000
+
+volumes:
+  postgres_data: {}
+  postgres_backups: {}
+  redis_data: {}
+  uploaded_files: {} 
